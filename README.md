@@ -51,13 +51,35 @@ A mobile application designed to connect mothers, expecting moms, and caregivers
    ```
 
 3. **Environment Setup:**
-   Copy the example environment file and add your credentials:
+
+   **Step 1:** Copy the example environment file to create your own `.env`:
    ```bash
    cp .env.example .env
    ```
-   Then edit `.env` and add your API keys:
-   - **Supabase** credentials from [supabase.com/dashboard](https://supabase.com/dashboard) → Project Settings → API
-   - **Google Places API** key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (optional, for location features)
+
+   **Step 2:** Open the `.env` file in a text editor:
+   ```bash
+   nano .env
+   ```
+   *(Or use `code .env` if you have VS Code, or `vim .env` for Vim)*
+
+   **Step 3:** Replace the placeholder values with your actual API keys:
+   ```env
+   EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_actual_anon_key_here
+   EXPO_PUBLIC_GOOGLE_PLACES_API_KEY=your_google_api_key_here
+   ```
+
+   **Step 4:** Save and exit:
+   - In **nano**: Press `Ctrl+O` to save, then `Ctrl+X` to exit
+   - In **VS Code**: Press `Cmd+S` (Mac) or `Ctrl+S` (Windows/Linux)
+
+   **Where to get your API keys:**
+   | Key | Where to Find It |
+   |-----|------------------|
+   | `SUPABASE_URL` | [Supabase Dashboard](https://supabase.com/dashboard) → Your Project → Settings → API → Project URL |
+   | `SUPABASE_ANON_KEY` | [Supabase Dashboard](https://supabase.com/dashboard) → Your Project → Settings → API → `anon` `public` key |
+   | `GOOGLE_PLACES_API_KEY` | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → Create Credentials → API Key (optional, for location features) |
 
 4. **Database Setup:**
    - Run the SQL commands found in `supabase_schema.sql` in your Supabase project's SQL Editor to set up the necessary tables and policies.
