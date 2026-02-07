@@ -51,12 +51,13 @@ A mobile application designed to connect mothers, expecting moms, and caregivers
    ```
 
 3. **Environment Setup:**
-   Create a `.env` file in the root directory and add your Supabase and API credentials:
-   ```env
-   EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   EXPO_PUBLIC_GOOGLE_PLACES_API_KEY=your_google_places_api_key
+   Copy the example environment file and add your credentials:
+   ```bash
+   cp .env.example .env
    ```
+   Then edit `.env` and add your API keys:
+   - **Supabase** credentials from [supabase.com/dashboard](https://supabase.com/dashboard) → Project Settings → API
+   - **Google Places API** key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (optional, for location features)
 
 4. **Database Setup:**
    - Run the SQL commands found in `supabase_schema.sql` in your Supabase project's SQL Editor to set up the necessary tables and policies.
