@@ -7,6 +7,7 @@ import AuthScreen from '../screens/AuthScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import { signOut } from '../services/auth.service';
 import { getProfile } from '../services/profile.service';
+import { OnboardingProvider, useOnboarding } from '../contexts/OnboardingContext';
 
 import DiscoverScreen from '../screens/DiscoverScreen';
 import MatchesScreen from '../screens/MatchesScreen';
@@ -15,22 +16,35 @@ import GroupsScreen from '../screens/GroupsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import GroupChatScreen from '../screens/GroupChatScreen';
 
-// Placeholder Home Screen for verified auth
-// For MVP, "Home" will be the Discover Screen or a Tab Navigator eventually.
-// Let's just point "Home" to DiscoverScreen for now or render DiscoverScreen as part of main stack.
-
-
 import MainTabNavigator from './MainTabNavigator';
 
 const Stack = createNativeStackNavigator();
 
-export default function AppNavigator() {
+function AppNavigatorContent() {
     const [session, setSession] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null);
     const [isLongLoading, setIsLongLoading] = useState(false);
+    const { isOnboarded, setIsOnboarded } = useOnboarding();
 
-    const initializeAuth = useCallback(() => {
+    // Helper function to fetch profile and set onboarding status
+    const fetchAndSetOnboardingStatus = useCallback(async (userId: string) => {
+        console.log('[AppNavigator] Fetching profile for user:', userId);
+        try {
+            const profile = await getProfile(userId);
+            console.log('[AppNavigator] Profile fetched:', profile);
+            const onboarded = !!profile?.onboarding_completed;
+            console.log('[AppNavigator] Setting isOnboarded to:', onboarded);
+            setIsOnboarded(onboarded);
+            return onboarded;
+        } catch (e) {
+            console.error('[AppNavigator] Profile fetch error:', e);
+            // If profile doesn't exist, they need onboarding
+            setIsOnboarded(false);
+            return false;
+        }
+    }, [setIsOnboarded]);
+
+    const initializeAuth = useCallback(async () => {
         setLoading(true);
         setIsLongLoading(false);
         console.log('[AppNavigator] Initializing auth...');
@@ -40,60 +54,85 @@ export default function AppNavigator() {
             setIsLongLoading(true);
         }, 5000);
 
-        const checkUser = async (user: any) => {
-            console.log('[AppNavigator] Checking user:', user?.id);
-            if (user) {
-                console.log('[AppNavigator] Fetching profile...');
-                try {
-                    const profile = await getProfile(user.id);
-                    console.log('[AppNavigator] Profile fetched:', profile);
-                    setIsOnboarded(!!profile?.onboarding_completed);
-                } catch (e) {
-                    console.error('[AppNavigator] Profile fetch error:', e);
-                    setIsOnboarded(null);
-                }
-            } else {
-                console.log('[AppNavigator] No user found.');
-                setIsOnboarded(null);
-            }
-        };
+        try {
+            console.log('[AppNavigator] Calling getSession...');
+            const { data: { session }, error } = await supabase.auth.getSession();
 
-        console.log('[AppNavigator] Calling getSession...');
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            console.log('[AppNavigator] Session retrieved:', session ? 'Session exists' : 'No session');
-            setSession(session);
-            checkUser(session?.user).then(() => {
-                console.log('[AppNavigator] checkUser completed.');
-                clearTimeout(timer);
-                setLoading(false);
-            });
-        }).catch(err => {
-            console.error('[AppNavigator] Error getting session:', err);
+            if (error) {
+                console.error('[AppNavigator] Error getting session:', error);
+                // Handle invalid refresh token by clearing the stale session
+                if (error?.message?.includes('Refresh Token') || (error as any)?.code === 'refresh_token_not_found') {
+                    console.log('[AppNavigator] Invalid token detected, signing out...');
+                    await supabase.auth.signOut();
+                }
+                setSession(null);
+                setIsOnboarded(false);
+            } else {
+                console.log('[AppNavigator] Session retrieved:', session ? 'Session exists' : 'No session');
+                setSession(session);
+
+                if (session?.user) {
+                    await fetchAndSetOnboardingStatus(session.user.id);
+                } else {
+                    // No session, no need to check onboarding
+                    setIsOnboarded(false);
+                }
+            }
+        } catch (e) {
+            console.error('[AppNavigator] Unexpected error:', e);
+            setSession(null);
+            setIsOnboarded(false);
+        } finally {
             clearTimeout(timer);
             setLoading(false);
-        });
-    }, []);
+            console.log('[AppNavigator] Initialization complete.');
+        }
+    }, [setIsOnboarded, fetchAndSetOnboardingStatus]);
 
     useEffect(() => {
         console.log('[AppNavigator] Mounted');
         initializeAuth();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
             console.log('[AppNavigator] Auth state changed:', _event);
-            setSession(session);
-            if (session?.user) {
-                const profile = await getProfile(session.user.id);
-                setIsOnboarded(!!profile?.onboarding_completed);
-            } else {
-                setIsOnboarded(null);
+
+            // Handle sign out - just clear session, no need to touch onboarding
+            if (_event === 'SIGNED_OUT') {
+                console.log('[AppNavigator] User signed out');
+                setSession(null);
+                // Don't set isOnboarded to false - leave it as is until new user signs in
+                return;
             }
-            setLoading(false);
+
+            // Handle sign in - need to fetch profile and set onboarding status
+            if (_event === 'SIGNED_IN' && newSession?.user) {
+                console.log('[AppNavigator] User signed in, fetching profile...');
+                setLoading(true); // Show loading while we fetch profile
+                setSession(newSession);
+                await fetchAndSetOnboardingStatus(newSession.user.id);
+                setLoading(false);
+                return;
+            }
+
+            // For other events (TOKEN_REFRESHED, INITIAL_SESSION, etc.)
+            // Just update session, don't change onboarding status unless it's initial
+            if (_event === 'INITIAL_SESSION' && newSession?.user) {
+                setSession(newSession);
+                // Only fetch if we haven't already (isOnboarded is still null)
+                if (isOnboarded === null) {
+                    await fetchAndSetOnboardingStatus(newSession.user.id);
+                }
+            } else if (_event === 'TOKEN_REFRESHED') {
+                // Just update session, keep onboarding status as is
+                setSession(newSession);
+            }
         });
 
         return () => subscription.unsubscribe();
-    }, [initializeAuth]);
+    }, [initializeAuth, fetchAndSetOnboardingStatus, isOnboarded, setIsOnboarded]);
 
-    if (loading) {
+    // Show loading screen while determining auth/onboarding state
+    if (loading || (session && isOnboarded === null)) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' }}>
                 <ActivityIndicator size="large" color="#E91E63" />
@@ -101,12 +140,14 @@ export default function AppNavigator() {
                     <View style={{ marginTop: 20, alignItems: 'center' }}>
                         <Text style={{ marginBottom: 10, color: '#666' }}>Connection is taking a while...</Text>
                         <Button title="Retry" onPress={initializeAuth} color="#E91E63" />
-                        <Button title="Go to Login" onPress={() => setLoading(false)} />
+                        <Button title="Go to Login" onPress={() => { setLoading(false); setSession(null); }} />
                     </View>
                 )}
             </View>
         );
     }
+
+    console.log('[AppNavigator] Rendering - session:', !!session, 'isOnboarded:', isOnboarded);
 
     return (
         <NavigationContainer>
@@ -128,3 +169,10 @@ export default function AppNavigator() {
     );
 }
 
+export default function AppNavigator() {
+    return (
+        <OnboardingProvider>
+            <AppNavigatorContent />
+        </OnboardingProvider>
+    );
+}

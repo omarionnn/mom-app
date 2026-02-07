@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { getConversations } from '../services/messaging.service';
 import { supabase } from '../services/supabase.client';
 import { Conversation } from '../types/models';
@@ -9,9 +10,12 @@ export default function MatchesScreen({ navigation }: any) {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchConversations();
-    }, []);
+    // Refresh conversations every time screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            fetchConversations();
+        }, [])
+    );
 
     const fetchConversations = async () => {
         try {

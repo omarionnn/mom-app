@@ -52,7 +52,7 @@ export default function AuthScreen() {
                 style={styles.keyboardView}
             >
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    <Text style={styles.title}>Mom Connect</Text>
+                    <Text style={styles.title}>Ezzie's</Text>
                     <Text style={styles.subtitle}>{isSignUp ? 'Join the community' : 'Welcome back'}</Text>
 
                     <View style={styles.form}>

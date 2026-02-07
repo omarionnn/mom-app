@@ -8,6 +8,7 @@ import { getCurrentLocation, requestLocationPermission, reverseGeocode } from '.
 import { updateProfile, completeOnboarding, uploadProfilePhoto } from '../services/profile.service';
 import { supabase } from '../services/supabase.client';
 import { Kid } from '../types/models';
+import { useOnboarding } from '../contexts/OnboardingContext';
 
 const INTERESTS_LIST = [
     'Working mom', 'Stay-at-home mom', 'Homeschooling', 'Single parent',
@@ -18,6 +19,7 @@ const INTERESTS_LIST = [
 export default function OnboardingScreen({ navigation }: any) {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const { setIsOnboarded } = useOnboarding();
 
     // Form State
     const [kids, setKids] = useState<Partial<Kid>[]>([{ age: 0 }]);
@@ -113,15 +115,9 @@ export default function OnboardingScreen({ navigation }: any) {
                 onboardingCompleted: true
             });
 
-            // Refresh session to trigger AppNavigator's onAuthStateChange listener
-            // Using a timeout to give Supabase DB a moment to propagate if needed
-            setTimeout(async () => {
-                try {
-                    await supabase.auth.refreshSession();
-                } catch (e) {
-                    console.error('Session refresh failed', e);
-                }
-            }, 500);
+            // Directly update onboarding state - triggers immediate navigation
+            console.log('[OnboardingScreen] Profile saved, navigating to main app...');
+            setIsOnboarded(true);
 
         } catch (e: any) {
             Alert.alert('Error', e.message);

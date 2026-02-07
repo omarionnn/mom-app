@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../services/supabase.client';
-import { sendMessage, getMessages } from '../services/messaging.service';
+import { sendMessage, getMessages, markMessagesAsRead } from '../services/messaging.service';
 import { Message } from '../types/models';
 import MessageBubble from '../components/MessageBubble';
 
@@ -19,6 +19,8 @@ export default function ChatScreen({ route, navigation }: any) {
                 setUserId(user.id);
                 loadMessages(user.id);
                 subscribeToMessages(user.id);
+                // Mark all messages from this user as read when entering chat
+                markMessagesAsRead(otherUser.id, user.id);
             }
         });
 
@@ -71,7 +73,7 @@ export default function ChatScreen({ route, navigation }: any) {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <Text style={styles.backText}>←</Text>

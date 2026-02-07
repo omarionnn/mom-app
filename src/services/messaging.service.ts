@@ -1,6 +1,24 @@
 import { supabase } from './supabase.client';
 import { Message, Conversation } from '../types/models';
 
+/**
+ * Get total count of unread messages for a user across all conversations.
+ * Used to display badge on Matches tab.
+ */
+export async function getTotalUnreadCount(userId: string): Promise<number> {
+    const { count, error } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipient_id', userId)
+        .is('read_at', null);
+
+    if (error) {
+        console.error('[messaging.service] Error getting unread count:', error);
+        return 0;
+    }
+    return count || 0;
+}
+
 export async function sendMessage(senderId: string, recipientId: string, content: string): Promise<Message> {
     if (content.length > 2000) throw new Error('Message too long');
 
@@ -93,3 +111,21 @@ export async function markAsRead(messageId: string): Promise<void> {
         .update({ read_at: new Date().toISOString() })
         .eq('id', messageId);
 }
+
+/**
+ * Mark all unread messages from a specific sender to the recipient as read.
+ * Called when entering a chat to clear the unread badge.
+ */
+export async function markMessagesAsRead(senderId: string, recipientId: string): Promise<void> {
+    const { error } = await supabase
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('sender_id', senderId)
+        .eq('recipient_id', recipientId)
+        .is('read_at', null);
+
+    if (error) {
+        console.error('[messaging.service] Error marking messages as read:', error);
+    }
+}
+
